@@ -159,7 +159,7 @@ motor_set_digital_defer(lua_State *L)
 	int new_value;
 	uint8_t buffer;
 
-	new_value = luaL_checknumber(L, 1);
+	new_value = luaL_checklong(L, 1);
 
 	if( (new_value > 255) || (new_value < 0) )
 		return luaL_error(L, "Digital output is out of range (0-255)");
@@ -186,8 +186,8 @@ motor_set_speed(lua_State *L)
 	uint8_t num;
 	uint8_t prev, speed;
 
-	num = luaL_checknumber(L, 1);
-	speed_tmp = luaL_checknumber(L, 2);
+	num = luaL_checklong(L, 1);
+	speed_tmp = luaL_checklong(L, 2);
 
 	/* Read parameters and determine speed */
 	if (num < 1 || num > 4)
@@ -242,13 +242,68 @@ motor_set_speed(lua_State *L)
 }
 
 
+
+static int
+motor_set_angle(lua_State *L)
+{
+	uint8_t num, buffer, addr;
+	uint32_t val;
+	double angle;
+
+	num = luaL_checklong(L, 1);
+	angle = luaL_checknumber(L, 2);
+
+	if ( !(num == 1 || num == 2) )
+		return luaL_error(L,
+			"Only channels 1 and 2 are supported for servo mode");
+
+	if( (angle < 0.0) || (angle > 180.0) )
+		return luaL_error(L,
+			"Only angles from 0 to 180 degrees is allowed");
+
+	// 1ms min, 1.5ms mid, 2ms max
+	// convert to nanoseconds pulse length
+	angle = (1000.0 * 1000.0) * (angle / 180.0);
+
+	angle += 1000000.0; // add 1 ms for the minimum time
+	angle = angle / 38.46153846; // divide to get # of clock cycles to wait
+
+	// now bounds check a2 to prevent servo blow-outs
+	val = (unsigned long) angle;
+	if (val < 26000)
+		val = 26000;
+	if (val > 52000)
+		val = 52000;
+      
+	// pick the correct chanel
+	if (num == 1)
+		addr = FPGA_SERV1_W1_ADR;
+	else
+		addr = FPGA_SERV2_W1_ADR;
+
+	buffer = val & 0xFF;
+	write_eeprom(dev_addr, addr, &buffer, sizeof(buffer));
+	buffer = (val >> 8) & 0xFF;
+	write_eeprom(dev_addr, addr + 1, &buffer, sizeof(buffer));
+	buffer = (val >> 16) & 0xFF;
+	write_eeprom(dev_addr, addr + 2, &buffer, sizeof(buffer));
+
+	return 0;
+}
+
+
 static const luaL_reg motorlib[] = {
+	/* Digital */
 	{"set_digital",		motor_set_digital},
 	{"get_digital",		motor_get_digital},
 	{"set_digital_defer",	motor_set_digital_defer},
 	{"sync_digital",	motor_sync_digital},
 
+	/* Motor */
 	{"set_speed",		motor_set_speed},
+
+	/* Servos */
+	{"set_angle",		motor_set_angle},
 
 	{NULL, NULL}
 };
