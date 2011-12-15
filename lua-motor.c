@@ -1,5 +1,6 @@
 #define LUA_LIB
 
+#include <time.h>
 #include <stdint.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -291,6 +292,20 @@ motor_set_angle(lua_State *L)
 	return 0;
 }
 
+static int
+netv_sleep(lua_State *L)
+{
+	struct timespec tv;
+	lua_Number t;
+
+	t = luaL_checknumber(L, 1);
+
+	tv.tv_sec  = (int)t;
+	tv.tv_nsec = (t-tv.tv_sec)*1000000000;
+	nanosleep(&tv, NULL);
+	return 0;
+}
+
 
 static const luaL_reg motorlib[] = {
 	/* Digital */
@@ -308,12 +323,18 @@ static const luaL_reg motorlib[] = {
 	{NULL, NULL}
 };
 
+static const luaL_reg netvlib[] = {
+	{"sleep",		netv_sleep},
+	{NULL, NULL}
+};
+
 
 /*
 ** Called when this module is loaded via 'require("motor")'
 */
 LUALIB_API int luaopen_motor (lua_State *L) {
 	luaL_register(L, LUA_MOTORLIBNAME, motorlib);
+	luaL_register(L, "netv", netvlib);
 	return 1;
 }
 
