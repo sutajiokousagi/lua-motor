@@ -1,5 +1,3 @@
-PATH=/home/user/chumby-oe/meta-chumby-private/bin:/home/user/chumby-oe/meta-chumby/bin:/home/user/chumby-oe/openembedded/bin:/home/user/chumby-oe/output-angstrom-.9/sysroots/i686-linux/usr/armv5te/bin:/home/user/chumby-oe/output-angstrom-.9/sysroots/i686-linux/usr/sbin:/home/user/chumby-oe/output-angstrom-.9/sysroots/i686-linux/usr/bin:/home/user/chumby-oe/output-angstrom-.9/sysroots/i686-linux/sbin:/home/user/chumby-oe/output-angstrom-.9/sysroots/i686-linux//bin:/home/user/chumby-oe/bitbake-1.12.0/bin:/home/user/CodeSourcery/Sourcery_G++_Lite/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games
-
 #------
 # Load configuration
 #
@@ -45,11 +43,7 @@ INSTALL_EXEC=cp
 #------
 # Compiler and linker settings
 # for Linux
-CC=arm-angstrom-linux-gnueabi-gcc -march=armv5te -mtune=xscale -mthumb-interwork -mno-thumb --sysroot=/home/user/chumby-oe/output-angstrom-.9/sysroots/armv5te-angstrom-linux-gnueabi
 DEF=-DLUASOCKET_DEBUG
-CFLAGS=-fexpensive-optimizations -frename-registers -O0 -ggdb2 -Wall
-LDFLAGS=-shared
-LD=arm-none-linux-gnueabi-gcc
 
 
 #------
@@ -69,7 +63,7 @@ SOCKET_OBJS:= \
 all: $(SOCKET_SO)
 
 $(SOCKET_SO): $(SOCKET_OBJS)
-	$(LD) $(LDFLAGS) -o $@ $(SOCKET_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(SOCKET_OBJS) -shared
 
 #------
 # List of dependencies
