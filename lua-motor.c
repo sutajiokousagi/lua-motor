@@ -178,16 +178,84 @@ motor_set_digital(lua_State *L)
 	return motor_sync_digital(L);
 }
 
+
+static int
+motor_set_speed(lua_State *L)
+{
+	int speed_tmp, dir;
+	uint8_t num;
+	uint8_t prev, speed;
+
+	num = luaL_checknumber(L, 1);
+	speed_tmp = luaL_checknumber(L, 2);
+
+	/* Read parameters and determine speed */
+	if (num < 1 || num > 4)
+		return luaL_error(L, "Motor number must be 1, 2, 3, or 4");
+
+	if (speed_tmp < -255 || speed_tmp > 255)
+		return luaL_error(L, "Speed is out of range (-255 to +255)");
+
+	if (speed_tmp > 0) {
+		dir = 1;
+		speed = speed_tmp;
+	}
+	else if (speed_tmp == 0) {
+		dir = 0;
+		speed = 0;
+	}
+	else {
+		dir = -1;
+		speed = -speed_tmp;
+	}
+		
+
+	/* Write out the "direction" value */
+	read_eeprom(dev_addr, FPGA_MOTEN_ADR, &prev, sizeof(prev));
+
+	if (dir == 1) {
+		prev &= ~(0x3 << ((num - 1) * 2));
+		prev |= 0x2 << ((num - 1) * 2);
+	}
+	else if (dir == -1) {
+		prev &= ~(0x3 << ((num - 1) * 2));
+		prev |= 0x1 << ((num - 1) * 2);
+	}
+	else if (dir == 0) {
+		prev &= ~(0x3 << ((num - 1) * 2));
+	}
+	write_eeprom(dev_addr, FPGA_MOTEN_ADR, &prev, sizeof(prev));
+
+	/* Bubble it through the scan chain */
+	read_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &prev, sizeof(prev));
+	prev &= 0xC7;
+	prev |= 0x10; // initiate transfer
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &prev, sizeof(prev));
+	prev &= 0xEF; // clear transfer
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &prev, sizeof(prev));
+
+
+	/* Write out the PWM value */
+	write_eeprom(dev_addr, FPGA_PWM1_ADR + num - 1, &speed, sizeof(speed));
+
+	return 0;
+}
+
+
 static const luaL_reg motorlib[] = {
 	{"set_digital",		motor_set_digital},
 	{"get_digital",		motor_get_digital},
-	{"sync_digital",	motor_sync_digital},
 	{"set_digital_defer",	motor_set_digital_defer},
+	{"sync_digital",	motor_sync_digital},
+
+	{"set_speed",		motor_set_speed},
+
 	{NULL, NULL}
 };
 
+
 /*
-** Open math library
+** Called when this module is loaded via 'require("motor")'
 */
 LUALIB_API int luaopen_motor (lua_State *L) {
 	luaL_register(L, LUA_MOTORLIBNAME, motorlib);
