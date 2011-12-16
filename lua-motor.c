@@ -50,7 +50,7 @@ static int fd;
 static char *i2c_device = "/dev/i2c-0";
 static int dev_addr = 0x3C>>1;
 
-int write_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
+static int write_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
 	uint8_t data[bytes+1];
 	struct i2c_rdwr_ioctl_data packets;
 	struct i2c_msg messages[1];
@@ -82,7 +82,7 @@ int write_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
 	return 0;
 }
 
-int read_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
+static int read_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
 	int byte;
 	//int page = 0;
 	struct i2c_rdwr_ioctl_data packets;
@@ -391,6 +391,7 @@ motor_set_type(lua_State *L)
 
 	return 0;
 }
+
 
 static int
 netv_sleep(lua_State *L)
