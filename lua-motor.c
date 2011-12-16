@@ -128,6 +128,66 @@ int read_eeprom(int addr, int start_reg, uint8_t *buffer, int bytes) {
 }
 
 static int
+motor_get_adc(lua_State *L)
+{
+	uint8_t num;
+	uint8_t buffer;
+	int i;
+	uint32_t val;
+
+	num = luaL_checklong(L, 1);
+	if (num < 1 || num > 8)
+		return luaL_error(L, "ADC channel is out of range (1-8)");
+	num--;
+
+	// first conversion sets address
+	read_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, 1);
+	buffer &= 0xE0;
+	buffer |= (num & 0x7);
+	buffer |= 0x08;
+	// setup addres
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+	buffer |= 0x10;
+	// initiate conversion
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+	buffer &= 0xEF; // clear transfer
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+
+	for (i=0; ((buffer & 0x08) == 0) && (i < 1000); i++)
+		read_eeprom(dev_addr, FPGA_MOT_STAT_ADR, &buffer, 1);
+	if ( i >= 1000 )
+		printf( "Note: ADC timed out during readback\n" );
+
+	// second conversion reads out the data
+	read_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, 1);
+	buffer &= 0xE0;
+	buffer |= (num & 0x7);
+	buffer |= 0x08;
+	// setup addres
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+	buffer |= 0x10;
+	// initiate conversion
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+	buffer &= 0xEF; // clear transfer
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+
+	for (i=0; ((buffer & 0x08) == 0) && (i < 1000); i++)
+		read_eeprom(dev_addr, FPGA_MOT_STAT_ADR, &buffer, 1);
+	if( i >= 1000 )
+		printf("Note: ADC timed out during readback\n");
+
+
+	// read the computed value
+	read_eeprom(dev_addr, FPGA_ADC_LSB_ADR, &buffer, 1);
+	val = (buffer >> 4) & 0xF;
+	read_eeprom(dev_addr, FPGA_ADC_MSB_ADR, &buffer, 1);
+	val |= ((buffer << 4) & 0xF0);
+
+	lua_pushnumber(L, val&0xFF);
+	return 1;
+}
+
+static int
 motor_sync_digital(lua_State *L)
 {
 	uint8_t buffer;
@@ -353,6 +413,9 @@ static const luaL_reg motorlib[] = {
 	{"get_digital",		motor_get_digital},
 	{"set_digital_defer",	motor_set_digital_defer},
 	{"sync_digital",	motor_sync_digital},
+
+	/* Analog */
+	{"get_adc",		motor_get_adc},
 
 	/* Motor type */
 	{"set_type",		motor_set_type},
