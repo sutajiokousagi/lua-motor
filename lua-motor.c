@@ -180,6 +180,7 @@ motor_set_digital(lua_State *L)
 }
 
 
+
 static int
 motor_set_speed(lua_State *L)
 {
@@ -292,6 +293,45 @@ motor_set_angle(lua_State *L)
 	return 0;
 }
 
+
+static int
+motor_set_type(lua_State *L)
+{
+	uint8_t num, type;
+	uint8_t buffer;
+	const char *type_str;
+
+	num = luaL_checklong(L, 1);
+	type_str = luaL_checklstring(L, 2, NULL);
+
+
+	if (num != 1 && num != 2)
+		return luaL_error(L, "Only channels 1 and 2 can switch types");
+
+	if (*type_str != 's' && *type_str != 'm')
+		return luaL_error(L,
+		     "Only valid modes are s (servo mode) and m (motor mode)");
+
+	buffer = 0x40;
+	write_eeprom(dev_addr, FPGA_SERV_PER1_ADR, &buffer, sizeof(buffer));
+	buffer = 0xEF;
+	write_eeprom(dev_addr, FPGA_SERV_PER2_ADR, &buffer, sizeof(buffer));
+	buffer = 0x07;
+	write_eeprom(dev_addr, FPGA_SERV_PER3_ADR, &buffer, sizeof(buffer));
+
+	// read back board control register value so as not to bash anything
+	read_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, 1);
+	if (*type_str == 's')
+		buffer |= ((num == 1) ? 0x40 : 0x80);
+	else if (*type_str == 'm')
+		buffer &= ((num == 1) ? 0xBF : 0x7F);
+	else
+		return luaL_error(L, "Unrecognized type: %c", *type_str);
+	write_eeprom(dev_addr, FPGA_BRD_CTL_ADR, &buffer, sizeof(buffer));
+
+	return 0;
+}
+
 static int
 netv_sleep(lua_State *L)
 {
@@ -313,6 +353,9 @@ static const luaL_reg motorlib[] = {
 	{"get_digital",		motor_get_digital},
 	{"set_digital_defer",	motor_set_digital_defer},
 	{"sync_digital",	motor_sync_digital},
+
+	/* Motor type */
+	{"set_type",		motor_set_type},
 
 	/* Motor */
 	{"set_speed",		motor_set_speed},
